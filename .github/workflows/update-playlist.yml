@@ -1,0 +1,35 @@
+name: Update IPTV Playlist
+
+on:
+  # Runs every day at 6:00 AM UTC
+  schedule:
+    - cron: '0 6 * * *'
+  # Allows manual trigger from GitHub Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-playlist:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Fetch and merge playlists
+        run: node scripts/fetch-playlists.cjs
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/auto-playlist.m3u
+          git diff --cached --quiet || git commit -m "Auto-update playlist $(date -u +%Y-%m-%d)"
+          git push
