@@ -99,28 +99,48 @@ export function parseM3U(content: string): Playlist {
   };
 }
 
+const CORS_PROXIES = [
+  (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+];
+
+async function fetchWithCorsRetry(url: string): Promise<string> {
+  // Try direct fetch first
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/vnd.apple.mpegurl, application/x-mpegurl, text/plain, */*' },
+    });
+    if (res.ok) {
+      const text = await res.text();
+      if (text && text.trim().length > 0) return text;
+    }
+  } catch {
+    // Direct fetch failed (likely CORS), try proxies
+  }
+
+  // Try CORS proxies
+  for (const proxy of CORS_PROXIES) {
+    try {
+      const res = await fetch(proxy(url));
+      if (res.ok) {
+        const text = await res.text();
+        if (text && text.trim().length > 0) return text;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  throw new TypeError('Failed to fetch');
+}
+
 /**
  * Load M3U from URL
  */
 export async function loadM3UFromURL(url: string): Promise<Playlist> {
   try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/vnd.apple.mpegurl, application/x-mpegurl, text/plain, */*',
-      },
-      // Note: CORS is handled by the browser - if the server doesn't allow it, this will fail
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const content = await response.text();
-    
-    if (!content || content.trim().length === 0) {
-      throw new Error('Empty response from server');
-    }
+    const content = await fetchWithCorsRetry(url);
 
     if (!content.includes('#EXTM3U') && !content.includes('#EXTINF')) {
       throw new Error('Invalid M3U format: File does not appear to be a valid M3U playlist');
@@ -129,13 +149,11 @@ export async function loadM3UFromURL(url: string): Promise<Playlist> {
     return parseM3U(content);
   } catch (error) {
     console.error('Error loading M3U:', error);
-    // Re-throw with more context
     if (error instanceof TypeError) {
       if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
         throw new Error('Network error: Unable to fetch playlist. Check your internet connection and the URL.');
       }
     }
-    // Check for DNS/network errors
     if (error instanceof Error) {
       if (error.message.includes('ERR_NAME_NOT_RESOLVED') || error.message.includes('getaddrinfo')) {
         throw new Error('DNS error: Cannot resolve hostname. Check if the URL is correct and your internet connection is working.');

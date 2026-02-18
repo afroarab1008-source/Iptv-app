@@ -3,6 +3,9 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { Channel, Playlist } from '../utils/m3uParser';
 import { EPGData, EPGProgram, getCurrentProgram, getNextProgram, loadEPGFromURL } from '../utils/epgParser';
 import { setLanguage as setI18nLanguage } from '../utils/i18n';
+import { StreamStatus, checkStreams, clearStreamCache } from '../utils/streamChecker';
+import { getRecommendations } from '../utils/recommendations';
+import type { Recording } from '../utils/recorder';
 
 export interface WatchHistoryEntry {
   channelId: string;
@@ -193,6 +196,18 @@ interface IPTVState {
   lockedGroups: string[];
   parentalUnlocked: boolean;
   
+  // Stream health
+  streamStatus: Record<string, StreamStatus>;
+  hideOffline: boolean;
+  streamCheckRunning: boolean;
+
+  // Multi-View
+  multiViewChannels: (Channel | null)[];
+  multiViewActive: boolean;
+
+  // Recordings
+  recordings: Recording[];
+
   // Saved playlists
   savedPlaylists: SavedPlaylist[];
   activePlaylistId: string | null;
@@ -268,6 +283,25 @@ interface IPTVState {
   enrichChannelLogos: () => void;
   fetchChannelLogos: () => Promise<void>;
   
+  // Stream health
+  checkAllStreams: () => void;
+  stopStreamCheck: () => void;
+  setStreamStatus: (id: string, status: StreamStatus) => void;
+  setHideOffline: (hide: boolean) => void;
+  clearStreamStatuses: () => void;
+  removeOfflineChannels: () => number;
+
+  // Multi-View
+  setMultiViewChannels: (channels: (Channel | null)[]) => void;
+  setMultiViewActive: (active: boolean) => void;
+
+  // Recordings
+  addRecording: (rec: Recording) => void;
+  deleteRecording: (id: string) => void;
+
+  // Recommendations
+  getRecommendedChannels: () => Channel[];
+
   // Navigation
   playNextChannel: () => void;
   playPrevChannel: () => void;
@@ -305,6 +339,12 @@ export const useIPTVStore = create<IPTVState>()(
       parentalPin: null,
       lockedGroups: [],
       parentalUnlocked: false,
+      streamStatus: {},
+      hideOffline: false,
+      streamCheckRunning: false,
+      multiViewChannels: [null, null, null, null],
+      multiViewActive: false,
+      recordings: [],
       savedPlaylists: [],
       activePlaylistId: null,
       epgData: null,
@@ -742,6 +782,71 @@ export const useIPTVStore = create<IPTVState>()(
         }
       },
 
+      // Stream health
+      checkAllStreams: () => {
+        const { channels } = get();
+        if (channels.length === 0) return;
+        const abortController = new AbortController();
+        set({ streamCheckRunning: true });
+        (window as unknown as Record<string, unknown>).__streamCheckAbort = abortController;
+        checkStreams(
+          channels,
+          (id, status) => {
+            set((state) => ({
+              streamStatus: { ...state.streamStatus, [id]: status },
+            }));
+          },
+          abortController.signal
+        ).then(() => {
+          set({ streamCheckRunning: false });
+        });
+      },
+      stopStreamCheck: () => {
+        const ctrl = (window as unknown as Record<string, unknown>).__streamCheckAbort as AbortController | undefined;
+        ctrl?.abort();
+        set({ streamCheckRunning: false });
+      },
+      setStreamStatus: (id, status) =>
+        set((state) => ({ streamStatus: { ...state.streamStatus, [id]: status } })),
+      setHideOffline: (hide) => set({ hideOffline: hide }),
+      clearStreamStatuses: () => {
+        clearStreamCache();
+        set({ streamStatus: {} });
+      },
+      removeOfflineChannels: () => {
+        const { channels, streamStatus } = get();
+        const offlineIds = new Set(
+          Object.entries(streamStatus)
+            .filter(([, s]) => s === 'offline')
+            .map(([id]) => id)
+        );
+        if (offlineIds.size === 0) return 0;
+        const filtered = channels.filter((ch) => !offlineIds.has(ch.id));
+        const newGroups = [...new Set(filtered.map((c) => c.group || c.groupTitle).filter(Boolean))] as string[];
+        set({
+          channels: filtered,
+          groups: newGroups,
+          streamStatus: Object.fromEntries(
+            Object.entries(streamStatus).filter(([id]) => !offlineIds.has(id))
+          ),
+        });
+        return offlineIds.size;
+      },
+
+      // Multi-View
+      setMultiViewChannels: (channels) => set({ multiViewChannels: channels }),
+      setMultiViewActive: (active) => set({ multiViewActive: active }),
+
+      // Recordings
+      addRecording: (rec) => set((state) => ({ recordings: [rec, ...state.recordings] })),
+      deleteRecording: (id) => set((state) => ({ recordings: state.recordings.filter((r) => r.id !== id) })),
+
+      // Recommendations
+      getRecommendedChannels: () => {
+        const { channels, watchHistory } = get();
+        return getRecommendations(channels, watchHistory);
+      },
+
       // Navigation
       playNextChannel: () => {
         const { channels, currentChannel } = get();
@@ -791,6 +896,13 @@ export const useIPTVStore = create<IPTVState>()(
           );
         }
 
+        // Hide offline
+        if (state.hideOffline && Object.keys(state.streamStatus).length > 0) {
+          filtered = filtered.filter(
+            (ch) => state.streamStatus[ch.id] !== 'offline'
+          );
+        }
+
         // Sort
         switch (state.channelSort) {
           case 'name-asc':
@@ -836,6 +948,7 @@ export const useIPTVStore = create<IPTVState>()(
         epgSources: state.epgSources,
         parentalPin: state.parentalPin,
         lockedGroups: state.lockedGroups,
+        hideOffline: state.hideOffline,
       }),
     }
   )

@@ -1,19 +1,19 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import videojs from 'video.js';
 import 'video.js/dist/video-js.css';
-import '@videojs/http-streaming';
 import { useIPTVStore } from '../store/iptvStore';
 import type { Channel } from '../utils/m3uParser';
-import { X, Maximize2, Minimize2, PictureInPicture2, SkipForward, SkipBack, Volume2, VolumeX, Cast, Moon, Music, Subtitles, ListVideo } from 'lucide-react';
+import { X, Maximize2, Minimize2, PictureInPicture2, SkipForward, SkipBack, Volume2, VolumeX, Cast, Moon, Music, Subtitles, ListVideo, Circle } from 'lucide-react';
 import { getProgramProgress, formatTime, getCurrentProgram, getNextProgram } from '../utils/epgParser';
 import { initCast, requestCastSession, stopCasting, castMedia, getCastDeviceName, CastState } from '../utils/castManager';
 import { t } from '../utils/i18n';
+import { startRecording, stopRecordingAsync, getRecordingState, isRecordingSupported } from '../utils/recorder';
 
 export default function VideoPlayer() {
   const videoRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<videojs.Player | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { currentChannel, setIsPlaying, setCurrentChannel, playNextChannel, playPrevChannel, addWatchHistory, audioOnly, sleepTimerEnd, setSleepTimer, channels } = useIPTVStore();
+  const { currentChannel, setIsPlaying, setCurrentChannel, playNextChannel, playPrevChannel, addWatchHistory, audioOnly, sleepTimerEnd, setSleepTimer, channels, addRecording } = useIPTVStore();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +30,7 @@ export default function VideoPlayer() {
   const [channelNumBuffer, setChannelNumBuffer] = useState('');
   const [showChannelList, setShowChannelList] = useState(false);
   const [channelBanner, setChannelBanner] = useState(true);
+  const [isRecording, setIsRecording] = useState(false);
   const channelBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const channelNumTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const watchStartRef = useRef<number>(Date.now());
@@ -114,23 +115,46 @@ export default function VideoPlayer() {
     }
   };
 
+  const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const loadSource = useCallback((player: videojs.Player, channel: typeof currentChannel, autoplay = true) => {
     if (!channel) return;
 
     const url = channel.url.toLowerCase();
-    const isHLS = url.includes('.m3u8') || url.includes('hls');
-    const streamType = isHLS ? 'application/x-mpegURL' : 'video/mp4';
+    const isHLS = url.includes('.m3u8') || url.includes('/hls') || url.includes('m3u8') || url.includes('playlist');
+    const isTS = url.endsWith('.ts');
+    let streamType = 'video/mp4';
+    if (isHLS) streamType = 'application/x-mpegURL';
+    else if (isTS) streamType = 'video/mp2t';
 
     console.log('Setting source:', channel.url, 'type:', streamType, 'autoplay:', autoplay);
     setIsLoading(true);
     setError(null);
 
+    if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+
+    loadTimeoutRef.current = setTimeout(() => {
+      if (player && !player.isDisposed()) {
+        const ct = player.currentTime?.() ?? 0;
+        const paused = player.paused?.() ?? true;
+        if (ct === 0 || paused) {
+          setIsLoading(false);
+          setError('Stream timed out. The channel may be offline or geo-blocked. Try another channel.');
+        }
+      }
+    }, 15000);
+
+    const clearLoadTimeout = () => {
+      if (loadTimeoutRef.current) { clearTimeout(loadTimeoutRef.current); loadTimeoutRef.current = null; }
+    };
+
+    player.one('playing', clearLoadTimeout);
+    player.one('error', clearLoadTimeout);
+
     player.src({ src: channel.url, type: streamType });
 
     if (autoplay) {
-      // Try playing immediately — works if user already interacted with the page
       player.play().catch(() => {
-        // If immediate play fails, wait for the stream to be ready
         const tryPlay = () => {
           player.play().catch((playErr: unknown) => {
             console.error('Auto-play failed:', playErr);
@@ -169,11 +193,14 @@ export default function VideoPlayer() {
       fill: true,
       playbackRates: [0.5, 1, 1.25, 1.5, 2],
       html5: {
-        hls: {
+        vhs: {
           enableLowInitialPlaylist: true,
           smoothQualityChange: true,
           overrideNative: true,
+          allowSeeksWithinUnsafeLiveWindow: true,
         },
+        nativeAudioTracks: false,
+        nativeVideoTracks: false,
       },
     });
 
@@ -221,6 +248,7 @@ export default function VideoPlayer() {
     });
 
     return () => {
+      if (loadTimeoutRef.current) { clearTimeout(loadTimeoutRef.current); loadTimeoutRef.current = null; }
       if (playerRef.current) {
         console.log('Disposing player');
         playerRef.current.dispose();
@@ -235,6 +263,20 @@ export default function VideoPlayer() {
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  // Auto-rotate to landscape on mobile when playing
+  useEffect(() => {
+    const ori = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void>; unlock?: () => void };
+    const lock = async () => {
+      try {
+        if (ori?.lock) await ori.lock('landscape');
+      } catch { /* not supported or requires fullscreen — ignore */ }
+    };
+    lock();
+    return () => {
+      try { ori?.unlock?.(); } catch { /* ignore */ }
+    };
   }, []);
 
   const handleFullscreen = useCallback(() => {
@@ -282,11 +324,40 @@ export default function VideoPlayer() {
     setIsMuted(muted);
   };
 
-  // Auto-hide controls after 3s of no mouse movement
+  // Auto-hide controls after 3s of no interaction
   const resetControlsTimer = useCallback(() => {
     setShowControls(true);
     if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
     controlsTimerRef.current = setTimeout(() => setShowControls(false), 3000);
+  }, []);
+
+  const handleTapRef = useRef<() => void>(() => {});
+  handleTapRef.current = () => {
+    if (showControls) {
+      setShowControls(false);
+      if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    } else {
+      resetControlsTimer();
+    }
+  };
+
+  // Native touch/click listener — works on Video.js elements that are outside React's tree
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const onTouch = (e: TouchEvent | MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('button, select, input, a, [role="button"]')) return;
+      handleTapRef.current();
+    };
+
+    el.addEventListener('touchstart', onTouch, { passive: true });
+    el.addEventListener('click', onTouch);
+    return () => {
+      el.removeEventListener('touchstart', onTouch);
+      el.removeEventListener('click', onTouch);
+    };
   }, []);
 
   useEffect(() => {
@@ -430,7 +501,7 @@ export default function VideoPlayer() {
       onMouseEnter={() => setShowControls(true)}
     >
       {/* Video Player — fills entire container, sits behind all overlays */}
-      <div ref={videoRef} className={`absolute inset-0 ${audioOnly ? 'opacity-0' : ''}`} />
+      <div ref={videoRef} className={`absolute inset-0 [&_.vjs-tech]:object-contain ${audioOnly ? 'opacity-0' : ''}`} />
 
       {/* Audio-only overlay */}
       {audioOnly && (
@@ -538,6 +609,28 @@ export default function VideoPlayer() {
           >
             <PictureInPicture2 size={20} className={isPiP ? 'text-primary-400' : ''} />
           </button>
+          {/* Record */}
+          {isRecordingSupported() && (
+            <button
+              onClick={async () => {
+                if (getRecordingState() === 'recording') {
+                  const rec = await stopRecordingAsync();
+                  if (rec) addRecording(rec);
+                  setIsRecording(false);
+                } else {
+                  const video = playerRef.current?.el()?.querySelector('video');
+                  if (video && currentChannel) {
+                    const ok = startRecording(video, currentChannel.name, currentChannel.logo);
+                    setIsRecording(ok);
+                  }
+                }
+              }}
+              className={`p-2 hover:bg-white/10 rounded transition-colors ${isRecording ? 'text-red-500' : ''}`}
+              title={isRecording ? 'Stop Recording' : 'Record'}
+            >
+              <Circle size={20} fill={isRecording ? 'currentColor' : 'none'} className={isRecording ? 'animate-pulse' : ''} />
+            </button>
+          )}
           {/* Sleep Timer */}
           <div className="relative">
             <button

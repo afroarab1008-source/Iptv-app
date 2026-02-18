@@ -1,9 +1,11 @@
 import { useIPTVStore } from '../store/iptvStore';
 import { Channel } from '../utils/m3uParser';
-import { Heart, Grid3x3, List, Search, X, Upload, Link as LinkIcon, Loader2, Tv } from 'lucide-react';
+import { Heart, Grid3x3, List, Search, X, Upload, Link as LinkIcon, Loader2, Tv, Wifi, WifiOff, Grid2x2, CalendarDays, EyeOff, Eye, RefreshCw, Trash2 } from 'lucide-react';
+import type { StreamStatus } from '../utils/streamChecker';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { loadM3UFromFile, loadM3UFromURL } from '../utils/m3uParser';
 import { EPGProgram, getProgramProgress, formatTime, getCurrentProgram } from '../utils/epgParser';
+import EPGGrid from './EPGGrid';
 
 export default function ChannelList() {
   const {
@@ -24,13 +26,25 @@ export default function ChannelList() {
     isFavorite,
     getFilteredChannels,
     epgData,
+    streamStatus,
+    hideOffline,
+    streamCheckRunning,
+    checkAllStreams,
+    stopStreamCheck,
+    setHideOffline,
+    setMultiViewChannels,
+    setMultiViewActive,
+    removeOfflineChannels,
   } = useIPTVStore();
+
+  const [removedCount, setRemovedCount] = useState<number | null>(null);
 
   const [showPlaylistInput, setShowPlaylistInput] = useState(false);
   const [playlistUrl, setPlaylistUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(60);
+  const [mainView, setMainView] = useState<'channels' | 'epg'>('channels');
   const scrollRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -266,7 +280,7 @@ export default function ChannelList() {
   return (
     <div className="w-full h-screen bg-slate-900 flex flex-col">
       {/* Header */}
-      <div className="bg-slate-800 border-b border-slate-700 p-4">
+      <div className="bg-slate-800 border-b border-slate-700 p-4 pl-14 lg:pl-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold">Channels</h1>
@@ -274,28 +288,52 @@ export default function ChannelList() {
               {filteredChannels.length} / {channels.length}
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => {
+                const first4 = filteredChannels.slice(0, 4).filter(Boolean);
+                if (first4.length >= 2) {
+                  setMultiViewChannels([...first4, ...Array(4 - first4.length).fill(null)]);
+                  setMultiViewActive(true);
+                }
+              }}
+              className="p-2 rounded transition-colors bg-slate-700 hover:bg-slate-600 text-gray-300"
+              title="Multi-View"
+            >
+              <Grid2x2 size={18} />
+            </button>
+            <button
+              onClick={() => setMainView(mainView === 'epg' ? 'channels' : 'epg')}
+              className={`p-2 rounded transition-colors ${
+                mainView === 'epg'
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
+              }`}
+              title="EPG Guide"
+            >
+              <CalendarDays size={18} />
+            </button>
             <button
               onClick={() => setViewMode('grid')}
               className={`p-2 rounded transition-colors ${
-                viewMode === 'grid'
+                viewMode === 'grid' && mainView === 'channels'
                   ? 'bg-primary-600 text-white'
                   : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
               }`}
               title="Grid View"
             >
-              <Grid3x3 size={20} />
+              <Grid3x3 size={18} />
             </button>
             <button
               onClick={() => setViewMode('list')}
               className={`p-2 rounded transition-colors ${
-                viewMode === 'list'
+                viewMode === 'list' && mainView === 'channels'
                   ? 'bg-primary-600 text-white'
                   : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
               }`}
               title="List View"
             >
-              <List size={20} />
+              <List size={18} />
             </button>
           </div>
         </div>
@@ -322,22 +360,22 @@ export default function ChannelList() {
 
         {/* Group Filter */}
         {groups.length > 0 && (
-          <div className="flex flex-wrap gap-2">
+          <div className="max-h-24 overflow-y-auto flex flex-wrap gap-2">
             <button
               onClick={() => setSelectedGroup(null)}
-              className={`px-3 py-1 rounded text-sm transition-colors ${
+              className={`px-3 py-1 rounded text-sm transition-colors flex-shrink-0 ${
                 !selectedGroup
                   ? 'bg-primary-600 text-white'
                   : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
               }`}
             >
-              All
+              All ({channels.length})
             </button>
             {groups.map((group) => (
               <button
                 key={group}
                 onClick={() => setSelectedGroup(group)}
-                className={`px-3 py-1 rounded text-sm transition-colors ${
+                className={`px-3 py-1 rounded text-sm transition-colors flex-shrink-0 ${
                   selectedGroup === group
                     ? 'bg-primary-600 text-white'
                     : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
@@ -350,8 +388,61 @@ export default function ChannelList() {
         )}
       </div>
 
+      {/* Stream Health */}
+      <div className="flex items-center gap-2 px-4 pb-2">
+        <button
+          onClick={() => streamCheckRunning ? stopStreamCheck() : checkAllStreams()}
+          className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs transition-colors ${
+            streamCheckRunning ? 'bg-yellow-600/20 text-yellow-400' : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
+          }`}
+        >
+          {streamCheckRunning ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+          {streamCheckRunning ? 'Checking...' : 'Check Streams'}
+        </button>
+        <button
+          onClick={() => setHideOffline(!hideOffline)}
+          className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs transition-colors ${
+            hideOffline ? 'bg-primary-600/20 text-primary-400' : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
+          }`}
+        >
+          {hideOffline ? <EyeOff size={12} /> : <Eye size={12} />}
+          {hideOffline ? 'Show All' : 'Hide Offline'}
+        </button>
+        {Object.values(streamStatus).filter((s) => s === 'offline').length > 0 && !streamCheckRunning && (
+          <button
+            onClick={() => {
+              const count = removeOfflineChannels();
+              setRemovedCount(count);
+              setTimeout(() => setRemovedCount(null), 3000);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1 rounded text-xs transition-colors bg-red-600/20 text-red-400 hover:bg-red-600/30"
+          >
+            <Trash2 size={12} />
+            Remove Offline ({Object.values(streamStatus).filter((s) => s === 'offline').length})
+          </button>
+        )}
+        {Object.keys(streamStatus).length > 0 && (
+          <span className="text-[10px] text-gray-500">
+            {Object.values(streamStatus).filter((s) => s === 'online').length} online /
+            {Object.values(streamStatus).filter((s) => s === 'offline').length} offline
+          </span>
+        )}
+        {removedCount !== null && (
+          <span className="text-[10px] text-green-400 animate-pulse">
+            Removed {removedCount} offline channels
+          </span>
+        )}
+      </div>
+
+      {/* EPG Grid Mode */}
+      {mainView === 'epg' && (
+        <div className="flex-1 overflow-hidden">
+          <EPGGrid />
+        </div>
+      )}
+
       {/* Channel Grid/List */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
+      {mainView === 'channels' && <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
         {filteredChannels.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-400">No channels found</p>
@@ -365,6 +456,7 @@ export default function ChannelList() {
                 isActive={currentChannel?.id === channel.id}
                 isFavorite={isFavorite(channel.id)}
                 currentProgram={findEpgProgram(channel)}
+                streamStatus={streamStatus[channel.id]}
                 onClick={() => handleChannelClick(channel)}
                 onToggleFavorite={() => toggleFavorite(channel.id)}
               />
@@ -379,6 +471,7 @@ export default function ChannelList() {
                 isActive={currentChannel?.id === channel.id}
                 isFavorite={isFavorite(channel.id)}
                 currentProgram={findEpgProgram(channel)}
+                streamStatus={streamStatus[channel.id]}
                 onClick={() => handleChannelClick(channel)}
                 onToggleFavorite={() => toggleFavorite(channel.id)}
               />
@@ -394,7 +487,7 @@ export default function ChannelList() {
             </span>
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
@@ -404,11 +497,19 @@ interface ChannelCardProps {
   isActive: boolean;
   isFavorite: boolean;
   currentProgram?: import('../utils/epgParser').EPGProgram;
+  streamStatus?: StreamStatus;
   onClick: () => void;
   onToggleFavorite: () => void;
 }
 
-function ChannelCard({ channel, isActive, isFavorite, currentProgram, onClick, onToggleFavorite }: ChannelCardProps) {
+function StreamDot({ status }: { status?: StreamStatus }) {
+  if (!status || status === 'unknown') return null;
+  if (status === 'checking') return <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />;
+  if (status === 'online') return <Wifi size={10} className="text-green-400" />;
+  return <WifiOff size={10} className="text-red-400" />;
+}
+
+function ChannelCard({ channel, isActive, isFavorite, currentProgram, streamStatus: status, onClick, onToggleFavorite }: ChannelCardProps) {
   return (
     <div
       className={`channel-card bg-slate-800 rounded-lg overflow-hidden cursor-pointer transition-all duration-200 hover:scale-[1.03] hover:shadow-lg hover:shadow-primary-500/10 ${
@@ -454,9 +555,12 @@ function ChannelCard({ channel, isActive, isFavorite, currentProgram, onClick, o
         )}
       </div>
       <div className="p-3">
-        <h3 className="font-semibold text-sm truncate" title={channel.name}>
-          {channel.name}
-        </h3>
+        <div className="flex items-center gap-1">
+          <StreamDot status={status} />
+          <h3 className="font-semibold text-sm truncate flex-1" title={channel.name}>
+            {channel.name}
+          </h3>
+        </div>
         {currentProgram ? (
           <div className="mt-1">
             <p className="text-xs text-primary-400 truncate" title={currentProgram.title}>
@@ -485,11 +589,12 @@ interface ChannelListItemProps {
   isActive: boolean;
   isFavorite: boolean;
   currentProgram?: import('../utils/epgParser').EPGProgram;
+  streamStatus?: StreamStatus;
   onClick: () => void;
   onToggleFavorite: () => void;
 }
 
-function ChannelListItem({ channel, isActive, isFavorite, currentProgram, onClick, onToggleFavorite }: ChannelListItemProps) {
+function ChannelListItem({ channel, isActive, isFavorite, currentProgram, streamStatus: status, onClick, onToggleFavorite }: ChannelListItemProps) {
   return (
     <div
       className={`channel-card bg-slate-800 rounded-lg p-4 flex items-center gap-4 cursor-pointer transition-all duration-200 hover:bg-slate-700 hover:translate-x-1 ${
@@ -517,6 +622,7 @@ function ChannelListItem({ channel, isActive, isFavorite, currentProgram, onClic
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
+          <StreamDot status={status} />
           <h3 className="font-semibold truncate">{channel.name}</h3>
           {isActive && (
             <span className="bg-primary-600 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1 flex-shrink-0">

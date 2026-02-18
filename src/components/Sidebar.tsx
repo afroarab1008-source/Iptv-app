@@ -1,5 +1,6 @@
 import { useIPTVStore, SavedPlaylist, BUILTIN_EPG_SOURCES } from '../store/iptvStore';
-import { Home, Heart, Settings, X, ListMusic, Trash2, Edit3, Check, Upload, Link as LinkIcon, Loader2, Radio, RefreshCw, Zap, Globe, Plus, ChevronDown, ChevronUp, BarChart3, Download, Lock, Unlock, Shield, Tv, Monitor, Languages, Music } from 'lucide-react';
+import { Home, Heart, Settings, X, ListMusic, Trash2, Edit3, Check, Upload, Link as LinkIcon, Loader2, Radio, RefreshCw, Zap, Globe, Plus, ChevronDown, ChevronUp, BarChart3, Download, Lock, Unlock, Shield, Tv, Monitor, Languages, Music, Film, Sparkles, QrCode } from 'lucide-react';
+import RecordingsPanel from './RecordingsPanel';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { loadM3UFromFile, loadM3UFromURL } from '../utils/m3uParser';
 import { Channel } from '../utils/m3uParser';
@@ -18,11 +19,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     addToRecent,
     favorites: favoriteIds,
     language,
+    recordings,
+    deleteRecording,
+    watchHistory,
+    getRecommendedChannels,
   } = useIPTVStore();
   // Force re-render when language changes so t() calls update
   void language;
 
-  const [activeTab, setActiveTab] = useState<'home' | 'playlists' | 'epg' | 'favorites' | 'settings'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'playlists' | 'epg' | 'favorites' | 'recordings' | 'settings'>('home');
 
   const favoriteChannels = channels.filter((ch) => favoriteIds.includes(ch.id));
 
@@ -46,10 +51,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       <div
         className={`fixed top-0 left-0 h-full w-80 bg-slate-800 z-50 transform transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
-        } lg:translate-x-0 lg:static lg:z-auto flex flex-col`}
+        } lg:translate-x-0 lg:static lg:z-auto flex flex-col overflow-hidden`}
       >
         {/* Header */}
-        <div className="p-4 border-b border-slate-700 flex items-center justify-between">
+        <div className="p-4 border-b border-slate-700 flex items-center justify-between flex-shrink-0">
           <h2 className="text-xl font-bold bg-gradient-to-r from-primary-400 to-primary-600 bg-clip-text text-transparent">IPTV App</h2>
           <button
             onClick={onClose}
@@ -60,30 +65,37 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-slate-700">
+        <div className="flex border-b border-slate-700 overflow-x-auto flex-shrink-0 scrollbar-hide">
           {[
             { id: 'home' as const, icon: Home, label: t('nav.home') },
             { id: 'playlists' as const, icon: ListMusic, label: t('nav.playlists') },
-            { id: 'epg' as const, icon: Radio, label: t('nav.epg') },
+            { id: 'epg' as const, icon: Radio, label: 'EPG' },
             { id: 'favorites' as const, icon: Heart, label: t('nav.favorites'), count: favoriteChannels.length },
+            { id: 'recordings' as const, icon: Film, label: 'Rec', count: recordings.length || undefined },
             { id: 'settings' as const, icon: Settings, label: t('nav.settings') },
           ].map(({ id, icon: Icon, label, count }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className={`flex-1 p-3 flex flex-col items-center justify-center gap-1 transition-colors text-xs ${
+              className={`relative min-w-0 flex-shrink-0 px-2 py-2.5 flex flex-col items-center justify-center gap-0.5 transition-colors text-[10px] leading-tight ${
                 activeTab === id
-                  ? 'bg-slate-700 text-primary-400 border-b-2 border-primary-400'
+                  ? 'bg-slate-700 text-primary-400'
                   : 'text-gray-400 hover:bg-slate-700/50'
               }`}
+              style={{ width: `${100 / 6}%` }}
               title={label}
             >
-              <Icon size={18} />
-              <span className="hidden sm:inline">{label}</span>
-              {count !== undefined && count > 0 && (
-                <span className="bg-primary-600 text-white text-[10px] px-1.5 py-0.5 rounded-full leading-none">
-                  {count}
-                </span>
+              <div className="relative">
+                <Icon size={16} />
+                {count !== undefined && count > 0 && (
+                  <span className="absolute -top-1.5 -right-2.5 bg-primary-600 text-white text-[8px] min-w-[14px] h-[14px] flex items-center justify-center px-0.5 rounded-full leading-none">
+                    {count > 99 ? '99+' : count}
+                  </span>
+                )}
+              </div>
+              <span className="truncate w-full text-center">{label}</span>
+              {activeTab === id && (
+                <div className="absolute bottom-0 left-1 right-1 h-0.5 bg-primary-400 rounded-full" />
               )}
             </button>
           ))}
@@ -92,14 +104,23 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
           {activeTab === 'home' && (
-            <div className="text-center text-gray-400 py-8">
-              <Home size={48} className="mx-auto mb-4 opacity-50" />
-              <p>Select a channel to start watching</p>
-              <p className="text-sm mt-2 text-gray-500">
-                {channels.length > 0
-                  ? `${channels.length} channels loaded`
-                  : 'Load a playlist to get started'}
-              </p>
+            <div>
+              {/* Recommendations */}
+              {watchHistory.length > 0 && channels.length > 0 && (
+                <RecommendedSection
+                  getRecommendedChannels={getRecommendedChannels}
+                  onChannelClick={handleChannelClick}
+                />
+              )}
+              <div className="text-center text-gray-400 py-8">
+                <Home size={48} className="mx-auto mb-4 opacity-50" />
+                <p>Select a channel to start watching</p>
+                <p className="text-sm mt-2 text-gray-500">
+                  {channels.length > 0
+                    ? `${channels.length} channels loaded`
+                    : 'Load a playlist to get started'}
+                </p>
+              </div>
             </div>
           )}
 
@@ -121,6 +142,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 ))
               )}
             </div>
+          )}
+
+          {activeTab === 'recordings' && (
+            <RecordingsPanel recordings={recordings} onDelete={deleteRecording} />
           )}
 
           {activeTab === 'settings' && <SettingsPanel />}
@@ -786,6 +811,42 @@ function EPGGrabber() {
   );
 }
 
+function RecommendedSection({ getRecommendedChannels, onChannelClick }: {
+  getRecommendedChannels: () => import('../utils/m3uParser').Channel[];
+  onChannelClick: (ch: import('../utils/m3uParser').Channel) => void;
+}) {
+  const recommended = getRecommendedChannels();
+  if (recommended.length === 0) return null;
+
+  return (
+    <div className="mb-6">
+      <div className="flex items-center gap-2 mb-3">
+        <Sparkles size={16} className="text-primary-400" />
+        <h3 className="text-sm font-semibold text-gray-300">Recommended For You</h3>
+      </div>
+      <div className="space-y-1.5">
+        {recommended.slice(0, 8).map((ch) => (
+          <div
+            key={ch.id}
+            onClick={() => onChannelClick(ch)}
+            className="flex items-center gap-2.5 p-2 rounded-lg cursor-pointer hover:bg-slate-700 transition-colors"
+          >
+            {ch.logo ? (
+              <img src={ch.logo} alt="" className="w-8 h-6 object-contain rounded" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            ) : (
+              <div className="w-8 h-6 bg-slate-700 rounded flex items-center justify-center text-[10px] text-gray-500">{ch.name.charAt(0)}</div>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-sm truncate">{ch.name}</p>
+              {ch.group && <p className="text-[10px] text-gray-500 truncate">{ch.group}</p>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const ACCENT_COLORS = [
   { name: 'Sky', value: '#0ea5e9' },
   { name: 'Blue', value: '#3b82f6' },
@@ -1017,8 +1078,40 @@ function SettingsPanel() {
         lockParental={lockParental}
       />
 
+      {/* Remote Control */}
+      <RemoteControlSection />
+
       {/* Import / Export */}
       <ImportExportSection exportSettings={exportSettings} importSettings={importSettings} />
+    </div>
+  );
+}
+
+function RemoteControlSection() {
+  const remoteUrl = `${window.location.origin}${window.location.pathname}?mode=remote`;
+
+  return (
+    <div>
+      <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+        <QrCode size={18} />
+        Mobile Remote
+      </h3>
+      <p className="text-xs text-gray-400 mb-3">
+        Open this URL on your phone to use it as a remote control:
+      </p>
+      <div className="bg-slate-700 rounded-lg p-3">
+        <p className="text-xs text-primary-400 break-all select-all font-mono">{remoteUrl}</p>
+        <button
+          onClick={() => navigator.clipboard.writeText(remoteUrl)}
+          className="mt-2 text-xs bg-primary-600 hover:bg-primary-500 text-white px-3 py-1.5 rounded transition-colors"
+        >
+          Copy URL
+        </button>
+      </div>
+      <p className="text-[10px] text-gray-500 mt-2">
+        Both devices must be on the same network and browser for BroadcastChannel to work.
+        Alternatively, open the same app in two tabs.
+      </p>
     </div>
   );
 }

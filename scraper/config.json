@@ -1,0 +1,50 @@
+{
+  "sources": [
+    {
+      "name": "iptv-org",
+      "type": "github",
+      "repo": "iptv-org/iptv",
+      "paths": ["streams/**/*.m3u"]
+    },
+    {
+      "name": "free-tv",
+      "type": "github",
+      "repo": "free-tv/iptv",
+      "paths": ["index.m3u"]
+    }
+  ],
+  "premium_sources": [
+    {
+      "name": "iptv-org-premium",
+      "type": "github",
+      "repo": "iptv-org/iptv",
+      "paths": ["streams/**/*.m3u"]
+    },
+    {
+      "name": "free-tv-premium",
+      "type": "github",
+      "repo": "free-tv/iptv",
+      "paths": ["index.m3u"]
+    }
+  ],
+  "github_search": {
+    "enabled": true,
+    "queries": [
+      "iptv m3u premium playlist",
+      "iptv m3u daily updated",
+      "free iptv m3u playlist",
+      "iptv m3u8 premium",
+      "iptv playlist m3u updated today"
+    ],
+    "max_repos_per_query": 5,
+    "max_files_per_repo": 20
+  },
+  "validation": {
+    "enabled": true,
+    "timeout": 10,
+    "concurrency": 50
+  },
+  "schedule_interval_hours": 12,
+  "output_dir": "output",
+  "github_token": null
+}
