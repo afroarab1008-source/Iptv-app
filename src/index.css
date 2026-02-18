@@ -1,0 +1,232 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Theme CSS Variables */
+:root,
+[data-theme="dark"] {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
+  --bg-card: #1e293b;
+  --bg-hover: #334155;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border: #334155;
+  --accent: var(--user-accent, #0ea5e9);
+}
+
+[data-theme="light"] {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-hover: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --border: #e2e8f0;
+  --accent: var(--user-accent, #0ea5e9);
+}
+
+[data-theme="oled"] {
+  --bg-primary: #000000;
+  --bg-secondary: #0a0a0a;
+  --bg-tertiary: #171717;
+  --bg-card: #0a0a0a;
+  --bg-hover: #171717;
+  --text-primary: #fafafa;
+  --text-secondary: #a1a1aa;
+  --text-muted: #52525b;
+  --border: #27272a;
+  --accent: var(--user-accent, #0ea5e9);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Video.js custom styles — keep z-index low so custom overlays appear above */
+.video-js {
+  width: 100% !important;
+  height: 100% !important;
+  background-color: #000;
+  z-index: 1 !important;
+}
+
+.video-js .vjs-tech {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+}
+
+.video-js video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+}
+
+.video-js .vjs-big-play-button {
+  border-radius: 50%;
+  width: 80px;
+  height: 80px;
+  line-height: 80px;
+  border: none;
+  background: rgba(14, 165, 233, 0.8);
+  transition: all 0.3s ease;
+}
+
+.video-js .vjs-big-play-button:hover {
+  background: rgba(14, 165, 233, 1);
+  transform: scale(1.1);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Custom animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.4); }
+  50% { box-shadow: 0 0 20px 4px rgba(14, 165, 233, 0.2); }
+}
+
+.fade-in { animation: fadeIn 0.3s ease-out; }
+.fade-in-up { animation: fadeInUp 0.4s ease-out; }
+.scale-in { animation: scaleIn 0.2s ease-out; }
+.slide-in-left { animation: slideInLeft 0.3s ease-out; }
+.pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+
+/* Staggered grid animation */
+.channel-card {
+  animation: fadeInUp 0.3s ease-out both;
+}
+
+.channel-card:nth-child(1) { animation-delay: 0ms; }
+.channel-card:nth-child(2) { animation-delay: 30ms; }
+.channel-card:nth-child(3) { animation-delay: 60ms; }
+.channel-card:nth-child(4) { animation-delay: 90ms; }
+.channel-card:nth-child(5) { animation-delay: 120ms; }
+.channel-card:nth-child(6) { animation-delay: 150ms; }
+.channel-card:nth-child(7) { animation-delay: 180ms; }
+.channel-card:nth-child(8) { animation-delay: 210ms; }
+.channel-card:nth-child(9) { animation-delay: 240ms; }
+.channel-card:nth-child(10) { animation-delay: 270ms; }
+.channel-card:nth-child(11) { animation-delay: 300ms; }
+.channel-card:nth-child(12) { animation-delay: 330ms; }
+
+/* Video.js control bar polish */
+.video-js .vjs-control-bar {
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.85)) !important;
+  height: 3.5em !important;
+}
+
+.video-js .vjs-progress-control .vjs-play-progress {
+  background-color: #0ea5e9 !important;
+}
+
+.video-js .vjs-volume-level {
+  background-color: #0ea5e9 !important;
+}
+
+/* TV Mode — 10-foot UI for large screens / remote control */
+.tv-mode {
+  font-size: 1.35rem;
+}
+
+.tv-mode .channel-card {
+  min-height: 8rem;
+  font-size: 1.2rem;
+}
+
+.tv-mode button,
+.tv-mode select,
+.tv-mode input {
+  min-height: 3rem;
+  font-size: 1.1rem;
+}
+
+.tv-mode ::-webkit-scrollbar {
+  width: 12px;
+}
+
+.tv-mode .text-xs {
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.tv-mode .text-sm {
+  font-size: 1.1rem;
+  line-height: 1.5;
+}
+
+.tv-mode .text-lg {
+  font-size: 1.5rem;
+}
+
+.tv-mode .text-xl {
+  font-size: 1.75rem;
+}
+
+.tv-mode .text-2xl {
+  font-size: 2rem;
+}
+
+.tv-mode *:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}

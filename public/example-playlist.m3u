@@ -1,0 +1,7 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="test1" tvg-name="Test Channel 1" group-title="Entertainment",Test Channel 1
+https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8
+#EXTINF:-1 tvg-id="test2" tvg-name="Test Channel 2" group-title="News",Test Channel 2
+https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8
+#EXTINF:-1 tvg-id="test3" tvg-name="Test Channel 3" group-title="Sports",Test Channel 3
+https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8
