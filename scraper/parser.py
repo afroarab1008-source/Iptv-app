@@ -10,6 +10,21 @@ logger = logging.getLogger(__name__)
 
 _ATTR_RE = re.compile(r'([\w-]+)="([^"]*)"')
 
+VALID_SCHEMES = {
+    "http", "https", "rtsp", "rtp", "udp", "igmp",
+    "rtmp", "rtmps", "rtmpe", "rtmpte",
+    "mms", "mmsh", "mmst", "srt",
+}
+
+
+def _is_stream_url(line: str) -> bool:
+    """Check if a line looks like a stream URL (any IPTV protocol)."""
+    stripped = line.strip()
+    for scheme in VALID_SCHEMES:
+        if stripped.lower().startswith(scheme + "://"):
+            return True
+    return False
+
 
 def _parse_extinf(line: str) -> dict[str, str]:
     """Extract attributes and channel name from an #EXTINF line."""
@@ -36,7 +51,8 @@ def parse_m3u(text: str, source: str = "") -> list[Channel]:
             while j < len(lines):
                 candidate = lines[j].strip()
                 if candidate and not candidate.startswith("#"):
-                    url = candidate
+                    if _is_stream_url(candidate):
+                        url = candidate
                     break
                 j += 1
             if url:

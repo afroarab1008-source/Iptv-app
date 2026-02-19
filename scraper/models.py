@@ -2,6 +2,33 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Optional
+from urllib.parse import urlparse
+
+IPTV_PROTOCOLS = {
+    "http": "HTTP",
+    "https": "HTTP",
+    "rtsp": "RTSP",
+    "rtp": "RTP",
+    "udp": "UDP",
+    "igmp": "IGMP",
+    "rtmp": "RTMP",
+    "rtmps": "RTMP",
+    "rtmpe": "RTMP",
+    "rtmpte": "RTMP",
+    "mms": "MMS",
+    "mmsh": "MMS",
+    "mmst": "MMS",
+    "srt": "SRT",
+}
+
+
+def detect_protocol(url: str) -> str:
+    """Detect the streaming protocol from a URL."""
+    try:
+        scheme = urlparse(url).scheme.lower()
+    except Exception:
+        scheme = ""
+    return IPTV_PROTOCOLS.get(scheme, scheme.upper() or "UNKNOWN")
 
 
 @dataclass
@@ -20,7 +47,12 @@ class Channel:
     is_alive: Optional[bool] = None
     response_time_ms: Optional[float] = None
     source: str = ""
+    protocol: str = ""
     extra_tags: dict[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.protocol:
+            self.protocol = detect_protocol(self.url)
 
     @property
     def metadata_score(self) -> int:
@@ -33,6 +65,14 @@ class Channel:
             if val:
                 score += 1
         return score
+
+    @property
+    def is_multicast(self) -> bool:
+        return self.protocol in ("UDP", "RTP", "IGMP")
+
+    @property
+    def is_http(self) -> bool:
+        return self.protocol == "HTTP"
 
     def to_m3u_entry(self) -> str:
         parts = ['#EXTINF:-1']

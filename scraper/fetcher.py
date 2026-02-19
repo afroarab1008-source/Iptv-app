@@ -1,3 +1,4 @@
+"""Fetch M3U content from configured sources (GitHub repos, direct URLs, web pages)."""
 from __future__ import annotations
 
 import fnmatch
@@ -7,13 +8,15 @@ from typing import Any
 
 import requests
 
+from http_client import fetch as http_fetch
+
 logger = logging.getLogger(__name__)
 
 GITHUB_API = "https://api.github.com"
 RAW_BASE = "https://raw.githubusercontent.com"
 DEFAULT_BRANCH = "main"
-USER_AGENT = "iptv-m3u-scraper/1.0"
-RATE_LIMIT_PAUSE = 30  # seconds to wait when rate-limited
+USER_AGENT = "iptv-m3u-scraper/2.0"
+RATE_LIMIT_PAUSE = 30
 
 
 def _headers(token: str | None = None) -> dict[str, str]:
@@ -32,11 +35,10 @@ def _get_default_branch(repo: str, token: str | None = None) -> str:
 
 
 def _list_repo_tree(repo: str, branch: str, token: str | None = None) -> list[str]:
-    """Fetch the full file tree of a repo via the Git Trees API."""
     url = f"{GITHUB_API}/repos/{repo}/git/trees/{branch}?recursive=1"
     resp = requests.get(url, headers=_headers(token), timeout=30)
     if resp.status_code == 403:
-        logger.warning("Rate limited on tree fetch for %s — pausing %ds", repo, RATE_LIMIT_PAUSE)
+        logger.warning("Rate limited on tree for %s — pausing %ds", repo, RATE_LIMIT_PAUSE)
         time.sleep(RATE_LIMIT_PAUSE)
         resp = requests.get(url, headers=_headers(token), timeout=30)
     resp.raise_for_status()
@@ -71,7 +73,6 @@ def _fetch_raw(repo: str, branch: str, path: str, token: str | None = None) -> s
 
 
 def _fetch_github_source(src: dict, token: str | None = None) -> list[tuple[str, str]]:
-    """Fetch M3U files from a single GitHub repo source."""
     results: list[tuple[str, str]] = []
     name = src["name"]
     repo = src["repo"]
@@ -83,35 +84,27 @@ def _fetch_github_source(src: dict, token: str | None = None) -> list[tuple[str,
     except requests.RequestException as exc:
         logger.error("Could not list tree for %s: %s", repo, exc)
         return results
-
     m3u_files = _match_paths(all_files, patterns)
     logger.info("Found %d M3U files in %s matching %s", len(m3u_files), repo, patterns)
-
     for filepath in m3u_files:
         text = _fetch_raw(repo, branch, filepath, token)
         if text:
-            label = f"{name}:{filepath}"
-            results.append((label, text))
+            results.append((f"{name}:{filepath}", text))
     return results
 
 
 def _fetch_direct_url(src: dict) -> list[tuple[str, str]]:
-    """Fetch a direct M3U URL."""
-    from web_scraper import fetch_url
-
     name = src["name"]
     url = src["url"]
     logger.info("Fetching direct URL: %s (%s)", name, url)
-    text = fetch_url(url)
+    text = http_fetch(url, timeout=15)
     if text:
         return [(f"{name}:{url}", text)]
     return []
 
 
 def _fetch_web_source(src: dict) -> list[tuple[str, str]]:
-    """Scrape a web page or paste site for M3U content."""
     from web_scraper import scrape_urls
-
     name = src["name"]
     urls = src.get("urls", [])
     logger.info("Scraping web source: %s (%d URLs)", name, len(urls))
@@ -120,10 +113,7 @@ def _fetch_web_source(src: dict) -> list[tuple[str, str]]:
 
 
 def fetch_sources(sources: list[dict], token: str | None = None) -> list[tuple[str, str]]:
-    """Return list of (source_label, raw_m3u_text) tuples from all configured sources.
-
-    Supported source types: "github", "url", "web".
-    """
+    """Return (source_label, raw_m3u_text) from all configured sources."""
     results: list[tuple[str, str]] = []
     for src in sources:
         src_type = src.get("type", "github")

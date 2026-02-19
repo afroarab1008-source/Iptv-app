@@ -1,0 +1,33 @@
+{
+  "generated_at": "2026-02-19T01:20:38.309563+00:00",
+  "total_channels": 323,
+  "alive": 323,
+  "dead": 0,
+  "unchecked": 0,
+  "categories": {
+    "by_country": {
+      "Uncategorized": 323
+    },
+    "by_language": {
+      "Unknown": 323
+    },
+    "by_genre": {
+      "Auto": 1,
+      "Education": 1,
+      "General": 6,
+      "Kids": 1,
+      "News": 3,
+      "Georgia": 1,
+      "Public": 1,
+      "Religious": 3,
+      "Sports": 209,
+      "United Arab Emirates": 1,
+      "Undefined": 87,
+      "VOD Italy": 2,
+      "Italy": 4,
+      "•游戏「赛事」": 1,
+      "国际频道": 1,
+      "Entertainment": 1
+    }
+  }
+}

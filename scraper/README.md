@@ -1,8 +1,14 @@
-# IPTV M3U Link Scraper
+# Premium IPTV M3U Scraper
 
-A Python-based scraper that fetches IPTV M3U playlists from GitHub repositories, validates streams, deduplicates channels, and categorizes them by country, language, and genre.
+Searches the internet for premium IPTV M3U playlists. The scraper automatically:
 
-Supports **premium mode** which uses GitHub Search API to automatically discover repos hosting IPTV playlists, and can scrape paste sites and direct URLs for M3U content.
+1. **Searches DuckDuckGo** for premium IPTV M3U links across paste sites, blogs, and forums
+2. **Searches GitHub** for repos hosting premium IPTV playlists (repo search + code search)
+3. **Scrapes discovered pages** — follows links, resolves paste sites to raw content, extracts embedded M3U URLs
+4. **Validates streams** — async checks which channels are actually alive
+5. **Deduplicates** — removes exact URL dupes and fuzzy name matches
+6. **Categorizes** — groups by country, language, and genre
+7. **Exports** — writes `playlist.m3u`, split files, and a JSON report
 
 ## Setup
 
@@ -11,7 +17,7 @@ cd scraper
 pip install -r requirements.txt
 ```
 
-Optionally, set a GitHub personal access token in `config.json` to avoid API rate limits (highly recommended for premium mode):
+Optional but recommended — set a GitHub token in `config.json` to avoid rate limits and enable code search:
 
 ```json
 {
@@ -21,37 +27,24 @@ Optionally, set a GitHub personal access token in `config.json` to avoid API rat
 
 ## Usage
 
-### Single scrape (default sources)
+### Scrape premium IPTV links
 
 ```bash
 python main.py scrape
 ```
 
-### Premium scrape (discovers extra repos + paste sites)
+This searches DuckDuckGo + GitHub, fetches all discovered M3U playlists, validates streams, and outputs the results.
 
-```bash
-python main.py scrape --premium
-```
-
-This does everything the basic scrape does, plus:
-- Searches GitHub for repos matching premium IPTV queries
-- Fetches from any direct URLs or paste site URLs in `premium_sources`
-- Merges, deduplicates, and validates all channels
-
-### Skip validation for speed
+### Skip validation (faster)
 
 ```bash
 python main.py scrape --skip-validate
-python main.py scrape --premium --skip-validate
 ```
 
-### Scheduled scraping
-
-Runs immediately, then repeats at the interval configured in `config.json` (default 12 hours):
+### Scheduled scraping (repeats every 12h)
 
 ```bash
 python main.py schedule
-python main.py schedule --premium
 ```
 
 ### Re-validate an existing playlist
@@ -62,84 +55,74 @@ python main.py validate output/playlist.m3u
 
 ### Verbose logging
 
-Add `-v` before the subcommand:
-
 ```bash
-python main.py -v scrape --premium
+python main.py -v scrape
 ```
 
 ## Output
 
-After a scrape, the `output/` directory contains:
+After a scrape, check `output/`:
 
-| File / Directory | Description |
+| Path | Description |
 |---|---|
-| `playlist.m3u` | Combined playlist of all alive channels |
-| `report.json` | Summary with totals, alive/dead counts, and per-category breakdowns |
-| `by_country/` | One `.m3u` file per country |
-| `by_language/` | One `.m3u` file per language |
-| `by_genre/` | One `.m3u` file per genre/category |
+| `playlist.m3u` | Combined playlist of all alive premium channels |
+| `report.json` | Summary: total found, alive, dead, per-category counts |
+| `by_country/` | One `.m3u` per country |
+| `by_language/` | One `.m3u` per language |
+| `by_genre/` | One `.m3u` per genre |
 
 ## Configuration
 
-Edit `config.json` to add sources, tune validation, or change the schedule interval.
+Edit `config.json` to customize search queries, validation settings, or pin specific sources.
 
-### Source types
-
-Three source types are supported:
-
-**GitHub repo** — fetch M3U files from a repo by glob pattern:
+### Web search queries
 
 ```json
 {
-  "name": "iptv-org",
-  "type": "github",
-  "repo": "iptv-org/iptv",
-  "paths": ["streams/**/*.m3u"]
+  "web_search": {
+    "queries": ["premium iptv m3u playlist 2026", "..."],
+    "max_results_per_query": 12,
+    "pause_between_queries": 2.0
+  }
 }
 ```
 
-**Direct URL** — fetch a single raw M3U URL:
-
-```json
-{
-  "name": "my-playlist",
-  "type": "url",
-  "url": "https://example.com/playlist.m3u"
-}
-```
-
-**Web page / paste site** — scrape pages for embedded M3U links:
-
-```json
-{
-  "name": "paste-links",
-  "type": "web",
-  "urls": [
-    "https://pastebin.com/abc123",
-    "https://rentry.co/xyz789",
-    "https://example.com/iptv-links-page"
-  ]
-}
-```
-
-Supported paste sites with auto raw-URL resolution: Pastebin, Rentry, dpaste, paste.ee, Hastebin, Ghostbin, ControlC, NoPaste.
-
-### GitHub search (premium mode)
-
-When `--premium` is used, the scraper also runs GitHub search queries to discover new repos automatically:
+### GitHub search queries
 
 ```json
 {
   "github_search": {
-    "enabled": true,
-    "queries": [
-      "iptv m3u premium playlist",
-      "iptv m3u daily updated"
-    ],
-    "max_repos_per_query": 5,
-    "max_files_per_repo": 20
+    "queries": ["premium iptv m3u playlist", "..."],
+    "max_repos_per_query": 10,
+    "max_files_per_repo": 30
   }
+}
+```
+
+### Pin specific sources
+
+You can pin known URLs directly:
+
+```json
+{
+  "sources": [
+    {
+      "name": "my-paste",
+      "type": "url",
+      "url": "https://pastebin.com/raw/abc123"
+    },
+    {
+      "name": "my-repo",
+      "type": "github",
+      "repo": "owner/repo",
+      "paths": ["*.m3u"]
+    },
+    {
+      "name": "my-pages",
+      "type": "web",
+      "urls": ["https://example.com/iptv-links"]
+    }
+  ]
 }
 ```
 
@@ -148,17 +131,18 @@ When `--premium` is used, the scraper also runs GitHub search queries to discove
 ```
 scraper/
   main.py            CLI entry point
-  config.json        Source URLs and settings
-  models.py          Channel dataclass
-  fetcher.py         Multi-type source fetcher (GitHub, URL, web)
-  github_search.py   GitHub Search API discovery
-  web_scraper.py     Web page and paste site scraper
+  config.json        Search queries and settings
+  web_search.py      DuckDuckGo internet search
+  github_search.py   GitHub repo + code search
+  web_scraper.py     Page scraper and paste site resolver
+  fetcher.py         Multi-type source fetcher
   parser.py          M3U parser
-  dedup.py           Deduplication logic
-  validator.py       Async stream checker
+  dedup.py           Deduplication
+  validator.py       Async stream validation
   categorizer.py     Channel categorization
   exporter.py        M3U and JSON export
-  scheduler.py       Periodic run scheduler
+  scheduler.py       Periodic scheduling
+  models.py          Channel dataclass
   output/            Generated playlists (gitignored)
   logs/              Log files (gitignored)
 ```

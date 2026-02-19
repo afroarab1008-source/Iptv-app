@@ -41,6 +41,10 @@ def export(
     main_path = os.path.join(output_dir, "playlist.m3u")
     write_m3u(channels, main_path)
 
+    # Also write to public/auto-playlist.m3u for the IPTV app to auto-load
+    public_path = os.path.join(os.path.dirname(output_dir), "auto-playlist.m3u")
+    write_m3u(channels, public_path)
+
     if split_files:
         for dim_name, groups in categories.items():
             dim_dir = os.path.join(output_dir, dim_name)

@@ -1,0 +1,3 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="ksport1hd" group-title="K+",K+ SPORT1
+http://tsht.itvlive.net:8181/2K-SPORT13/tracks-v1a1/mono.m3u8?token=DKMcut
