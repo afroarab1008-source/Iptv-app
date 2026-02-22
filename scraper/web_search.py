@@ -17,6 +17,7 @@ import concurrent.futures
 import logging
 import re
 import time
+from html import unescape
 from ipaddress import ip_address
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse, urlunparse
 
@@ -377,7 +378,8 @@ def _extract_m3u_links(html: str, base_url: str = "") -> list[str]:
 
 def _normalize_candidate_url(url: str) -> str:
     return (
-        url.replace("\\/", "/")
+        unescape(url)
+        .replace("\\/", "/")
         .replace("\\u002F", "/")
         .strip()
         .strip("\"'()[]{}<>")
@@ -398,6 +400,22 @@ def _looks_like_http_stream_url(url: str) -> bool:
     query = (parsed.query or "").lower()
     combined = f"{path}?{query}"
     return any(hint in combined for hint in HTTP_STREAM_HINTS)
+
+
+def _is_valid_non_http_stream_target(parsed_url) -> bool:
+    host = parsed_url.hostname or ""
+    if not host:
+        return False
+
+    try:
+        port = parsed_url.port
+    except ValueError:
+        return False
+
+    scheme = (parsed_url.scheme or "").lower()
+    if scheme in {"udp", "rtp", "igmp"} and port is None:
+        return False
+    return True
 
 
 def _to_xtream_m3u_url(candidate: str) -> str | None:
@@ -460,7 +478,7 @@ def _extract_raw_stream_urls(html: str) -> list[str]:
         scheme = (parsed.scheme or "").lower()
         if scheme in {"http", "https"} and not _looks_like_http_stream_url(stream_url):
             continue
-        if scheme in NON_HTTP_STREAM_SCHEMES and not parsed.hostname:
+        if scheme in NON_HTTP_STREAM_SCHEMES and not _is_valid_non_http_stream_target(parsed):
             continue
         if stream_url not in seen:
             seen.add(stream_url)
