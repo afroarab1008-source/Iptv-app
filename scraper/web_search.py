@@ -60,7 +60,10 @@ HTTP_STREAM_HINTS = (
     "type=m3u", "output=ts", "output=m3u8", "format=m3u",
 )
 MULTICAST_HOST_PORT_RE = re.compile(
-    r'(?<![\d.])((?:22[4-9]|23\d)\.(?:\d{1,3}\.){2}\d{1,3})\s*[: ]\s*(\d{2,5})(?!\d)'
+    r'(?<![\d.])((?:22[4-9]|23\d)\.(?:\d{1,3}\.){2}\d{1,3})'
+    r'(?:\s*:\s*|\s+on\s+port\s+|\s+port\s+|\s+)'
+    r'(\d{2,5})(?!\d)',
+    re.IGNORECASE,
 )
 
 # ── Search queries in 15+ languages ─────────────────────────────────────
