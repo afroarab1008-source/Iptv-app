@@ -17,7 +17,8 @@ import concurrent.futures
 import logging
 import re
 import time
-from urllib.parse import urljoin, urlparse
+from ipaddress import ip_address
+from urllib.parse import parse_qs, urlencode, urljoin, urlparse, urlunparse
 
 from bs4 import BeautifulSoup
 from duckduckgo_search import DDGS
@@ -42,9 +43,24 @@ M3U_CONTENT_RE = re.compile(r'#EXTM3U|#EXTINF', re.IGNORECASE)
 
 BASE64_M3U_RE = re.compile(r'[A-Za-z0-9+/]{40,}={0,2}')
 
-XTREAM_RE = re.compile(
+XTREAM_GET_RE = re.compile(
     r'https?://[^\s<>"\')\]]+/get\.php\?username=[^\s<>"\')\]&]+&password=[^\s<>"\')\]&]+',
     re.IGNORECASE,
+)
+
+XTREAM_PLAYER_API_RE = re.compile(
+    r'https?://[^\s<>"\')\]]+/player_api\.php\?username=[^\s<>"\')\]&]+&password=[^\s<>"\')\]&]+',
+    re.IGNORECASE,
+)
+
+NON_HTTP_STREAM_SCHEMES = {"rtsp", "rtp", "udp", "igmp", "rtmp", "rtmps", "rtmpe", "rtmpte", "mms", "mmsh", "mmst", "srt"}
+HTTP_STREAM_HINTS = (
+    ".m3u", ".m3u8", ".mpd", ".ts", ".m4s", ".mp4", ".aac",
+    "/manifest", "/playlist", "/stream", "/hls", "/live",
+    "type=m3u", "output=ts", "output=m3u8", "format=m3u",
+)
+MULTICAST_HOST_PORT_RE = re.compile(
+    r'(?<![\d.])((?:22[4-9]|23\d)\.(?:\d{1,3}\.){2}\d{1,3})\s*[: ]\s*(\d{2,5})(?!\d)'
 )
 
 # ── Search queries in 15+ languages ─────────────────────────────────────
@@ -289,6 +305,7 @@ IPTV_LISTING_SITES = [
     "https://sat.kharkiv.ua/plejlisty/1565-besplatnye-plejlisty-po-kategoriyam",
     "https://potelevizoram.ru/iptv/playlist/samoobnovlyaemye",
     "https://oanda.ru/iptv-plejlisty-m3u/",
+    "https://wvthoog.nl/capture-iptv-content/",
 ]
 
 # ── Known paste URLs with beIN/sport content ────────────────────────────
@@ -348,34 +365,103 @@ def _try_base64_decode(text: str) -> str | None:
 
 
 def _extract_m3u_links(html: str, base_url: str = "") -> list[str]:
-    found = M3U_LINK_RE.findall(html)
+    normalized_html = html.replace("\\/", "/").replace("\\u002F", "/")
+    found = M3U_LINK_RE.findall(normalized_html)
     if base_url:
         found = [urljoin(base_url, u) for u in found]
     return list(dict.fromkeys(found))
 
 
+def _normalize_candidate_url(url: str) -> str:
+    return (
+        url.replace("\\/", "/")
+        .replace("\\u002F", "/")
+        .strip()
+        .strip("\"'()[]{}<>")
+        .rstrip(".,;")
+    )
+
+
+def _is_multicast_ipv4(host: str) -> bool:
+    try:
+        return ip_address(host).is_multicast
+    except ValueError:
+        return False
+
+
+def _looks_like_http_stream_url(url: str) -> bool:
+    parsed = urlparse(url)
+    path = (parsed.path or "").lower()
+    query = (parsed.query or "").lower()
+    combined = f"{path}?{query}"
+    return any(hint in combined for hint in HTTP_STREAM_HINTS)
+
+
+def _to_xtream_m3u_url(candidate: str) -> str | None:
+    parsed = urlparse(_normalize_candidate_url(candidate))
+    query = parse_qs(parsed.query, keep_blank_values=False)
+    username = (query.get("username") or [""])[0].strip()
+    password = (query.get("password") or [""])[0].strip()
+    if not username or not password:
+        return None
+
+    output = (query.get("output") or ["ts"])[0].strip() or "ts"
+    normalized_query = urlencode(
+        {
+            "username": username,
+            "password": password,
+            "type": "m3u_plus",
+            "output": output,
+        }
+    )
+
+    lower_path = (parsed.path or "").lower()
+    if lower_path.endswith("/player_api.php"):
+        path = parsed.path[:-len("player_api.php")] + "get.php"
+    elif lower_path.endswith("/get.php"):
+        path = parsed.path
+    else:
+        base = parsed.path.rstrip("/")
+        path = f"{base}/get.php" if base else "/get.php"
+
+    return urlunparse(parsed._replace(path=path, query=normalized_query, fragment=""))
+
+
 def _extract_xtream_urls(html: str) -> list[str]:
-    """Extract Xtream Codes get.php URLs and convert to M3U format."""
-    urls = XTREAM_RE.findall(html)
+    """Extract Xtream URLs (get.php/player_api.php) and normalize to m3u_plus."""
+    normalized_html = html.replace("\\/", "/").replace("\\u002F", "/")
+    urls = XTREAM_GET_RE.findall(normalized_html) + XTREAM_PLAYER_API_RE.findall(normalized_html)
     m3u_urls: list[str] = []
-    for u in urls:
-        if "type=" not in u:
-            u += "&type=m3u_plus&output=ts"
-        elif "m3u" not in u:
-            u = re.sub(r'type=[^&]*', 'type=m3u_plus', u)
-        m3u_urls.append(u)
+    seen: set[str] = set()
+    for candidate in urls:
+        normalized = _to_xtream_m3u_url(candidate)
+        if normalized and normalized not in seen:
+            seen.add(normalized)
+            m3u_urls.append(normalized)
     return list(dict.fromkeys(m3u_urls))
 
 
 def _extract_raw_stream_urls(html: str) -> list[str]:
-    urls = STREAM_URL_RE.findall(html)
+    normalized_html = html.replace("\\/", "/").replace("\\u002F", "/")
+    urls = STREAM_URL_RE.findall(normalized_html)
+    for host, port in MULTICAST_HOST_PORT_RE.findall(normalized_html):
+        if _is_multicast_ipv4(host):
+            urls.append(f"udp://{host}:{port}")
     unique: list[str] = []
     seen: set[str] = set()
-    for u in urls:
-        u = u.rstrip(".,;'\")")
-        if u not in seen and len(u) > 20:
-            seen.add(u)
-            unique.append(u)
+    for candidate in urls:
+        stream_url = _normalize_candidate_url(candidate)
+        if not stream_url:
+            continue
+        parsed = urlparse(stream_url)
+        scheme = (parsed.scheme or "").lower()
+        if scheme in {"http", "https"} and not _looks_like_http_stream_url(stream_url):
+            continue
+        if scheme in NON_HTTP_STREAM_SCHEMES and not parsed.hostname:
+            continue
+        if stream_url not in seen:
+            seen.add(stream_url)
+            unique.append(stream_url)
     return unique
 
 
@@ -458,9 +544,8 @@ def scrape_telegram_channel(channel: str) -> list[tuple[str, str]]:
             results.append((f"telegram:{channel}:{link}", m3u_text))
 
     raw_urls = _extract_raw_stream_urls(text)
-    hls_urls = [u for u in raw_urls if ".m3u8" in u or ".ts" in u]
-    if hls_urls:
-        synthetic = _make_synthetic_m3u(hls_urls)
+    if raw_urls:
+        synthetic = _make_synthetic_m3u(raw_urls[:200])
         if synthetic:
             results.append((f"telegram:{channel}:raw", synthetic))
 
@@ -518,9 +603,8 @@ def _scrape_page(url: str) -> list[tuple[str, str]]:
             results.append((link, m3u_text))
 
     raw_urls = _extract_raw_stream_urls(text)
-    hls_urls = [u for u in raw_urls if ".m3u8" in u or ".ts" in u]
-    if hls_urls and not results:
-        synthetic = _make_synthetic_m3u(hls_urls)
+    if raw_urls and not results:
+        synthetic = _make_synthetic_m3u(raw_urls[:200])
         if synthetic:
             results.append((f"raw:{url}", synthetic))
 
