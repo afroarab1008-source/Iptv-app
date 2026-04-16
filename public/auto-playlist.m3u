@@ -193,8 +193,6 @@ https://streamw.m.ro/Aleph/ngrp:Alephbiz.stream_all/playlist.m3u8
 https://tdameritrade-vizio.amagi.tv/playlist.m3u8
 #EXTINF:-1 tvg-id="AusbizTV.au@SD" tvg-logo="https://i.imgur.com/8vGGdB0.png" group-title="Business",ausbiz TV (720p) [Not 24/7]
 https://d9quh89lh7dtw.cloudfront.net/public-output/index.m3u8
-#EXTINF:-1 tvg-id="BeritaSatu.id@SD" tvg-logo="https://i.postimg.cc/6pycF7Vx/300px-IDTV.png" group-title="Business",BeritaSatu (1080p)
-https://beritasatu.secureswiftcontent.com/han/beritasatu/bsatu10008r/srtoutput/manifest.m3u8
 #EXTINF:-1 tvg-id="BilyonaryoNewsChannel.ph@SD" tvg-logo="https://i.imgur.com/iTH9Z0j.png" group-title="Business",Bilyonaryo News Channel (1080p)
 https://streams.comclark.com/transcode/bilyonaryo/playlist.m3u8
 #EXTINF:-1 tvg-id="BloombergHT.tr@SD" tvg-logo="https://i.imgur.com/bmkXfIE.png" group-title="Business",Bloomberg HT (720p)
@@ -677,6 +675,8 @@ https://livefta.malimarcdn.com/ftaedge00/cvabroadcasting.stream/playlist.m3u8
 https://unlimited1-us.dps.live/holvoettv/holvoettv.smil/playlist.m3u8
 #EXTINF:-1 tvg-id="HyderTV.ca@SD" tvg-logo="https://i.imgur.com/reHjjRZ.png" group-title="Culture",Hyder TV (720p)
 https://cdn.live247stream.com/hyder/tv/playlist.m3u8
+#EXTINF:-1 tvg-id="ImaiTV.lk@SD" tvg-logo="https://i.imgur.com/9tODclu.png" group-title="Culture",Imai TV (1080p)
+https://live20.bozztv.com/akamaissh101/ssh101/imaitv/playlist.m3u8
 #EXTINF:-1 tvg-id="IndigenousTV.tw@SD" tvg-logo="https://i.imgur.com/vmk4F9u.png" group-title="Culture",Indigenous TV (720p)
 http://streamipcf.akamaized.net/live/_definst_/smil:liveabr.smil/playlist.m3u8
 #EXTINF:-1 tvg-id="IRIB4.ir@SD" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/IRIB_TV4_logo.svg/960px-IRIB_TV4_logo.svg.png" group-title="Culture",IRIB4
@@ -7439,6 +7439,8 @@ https://rpn.bozztv.com/gusa/gusa-hitops/index.m3u8
 https://rpn.bozztv.com/gusa/gusa-TVSCartoonNetwork/index.m3u8
 #EXTINF:-1 tvg-id="VTV.id@SD" tvg-logo="https://i.postimg.cc/cJRJr3BR/2560px-VTV-Indonesia-White-2023-svg.png" group-title="Kids",VTV (1080p)
 http://103.66.62.83:8000/play/a00c/index.m3u8
+#EXTINF:-1 tvg-id="WatchitKID.us@SD" tvg-logo="https://i.imgur.com/YNx0j1b.png" group-title="Kids",Watch it KID! (480i)
+https://stream-us-east-1.getpublica.com/cl/260415d7g24jv4hnf3ahfafgog/318x234_424101_3_f.m3u8?i=513_2256
 #EXTINF:-1 tvg-id="YAAAS.uk@HD" tvg-logo="https://www.freeview.co.uk/sites/default/files/styles/255_wide/public/2019-12/yaas-logo250x144.png" group-title="Kids",YAAAS! (720p) [Geo-blocked]
 https://jmp2.uk/stvp-GB340000289
 #EXTINF:-1 tvg-id="ZBCartoon.in@HD" tvg-logo="https://jiotvimages.cdn.jio.com/dare_images/images/zbcatun.png" group-title="Kids",ZB Cartoon (1080p)
@@ -7983,8 +7985,6 @@ https://dce3793146fef017.mediapackage.us-west-2.amazonaws.com/out/v1/55cdf73af78
 https://qvc-amd-live.akamaized.net/hls/live/2034113/lsqvc5us/master.m3u8
 #EXTINF:-1 tvg-id="VoyagesSaveurs.es@FR" tvg-logo="https://images.pluto.tv/channels/680291e38e1ff89c2427aefd/colorLogoPNG_1749650211442.png" group-title="Lifestyle;Travel",Voyages & Saveurs (720p)
 https://jmp2.uk/plu-680291e38e1ff89c2427aefd.m3u8
-#EXTINF:-1 tvg-id="Andpictures.in@HD" tvg-logo="https://dtil.tmsimg.com/assets/GNLZZGG0022J67R.png?lock=720x540" group-title="Movies",&pictures HD (1080p)
-http://103.229.254.25:7001/play/a033/index.m3u8
 #EXTINF:-1 tvg-id="AndTV.in@SD" tvg-logo="https://xstreamcp-assets-msp.streamready.in/assets/LIVETV/LIVECHANNEL/LIVETV_LIVETVCHANNEL_SYMANDTV/images/LOGO_HD/LOGO_HD_image.png" group-title="Movies",&TV (576p)
 http://103.229.254.25:7001/play/a09v/index.m3u8
 #EXTINF:-1 tvg-id="AndTV.in@HD" tvg-logo="https://xstreamcp-assets-msp.streamready.in/assets/LIVETV/LIVECHANNEL/LIVETV_LIVETVCHANNEL_SYMANDTV/images/LOGO_HD/LOGO_HD_image.png" group-title="Movies",&TV HD (1080p)
@@ -8123,7 +8123,7 @@ http://cdns.jp-primehome.com:8000/zhongying/live/playlist.m3u8?cid=cs22
 https://ca-rt.onetv.app/EkranMovies/index-0.m3u8?token=onetv202
 #EXTINF:-1 tvg-id="ETVCinema.in@HD" tvg-logo="https://dtil.tmsimg.com/assets/s143026_ld_h15_aa.png?lock=720x540" group-title="Movies",ETV Cinema HD (1080p)
 https://d1q7j6ha51ro6f.cloudfront.net/v1/master/9d43eacaed199f8d5883927e7aef514a8a08e108/ETV_CINEMA_H264-3_cloud_in/index.m3u8
-#EXTINF:-1 tvg-id="EpicBhojpuri.in@SD" tvg-logo="https://dtil.tmsimg.com/assets/s157803_ld_h15_aa.png?lock=720x540" group-title="Movies",Filamchi Bhojpuri (1080p)
+#EXTINF:-1 tvg-id="EpicBhojpuri.in@SD" tvg-logo="https://dtil.tmsimg.com/assets/GNLZZGG0032BVJ8.png?lock=720x540" group-title="Movies",Filamchi Bhojpuri (1080p)
 https://epiconvh.akamaized.net/live/filamchi/master.m3u8
 #EXTINF:-1 tvg-id="Film4.uk@SD" tvg-logo="https://i.imgur.com/MTSgoGI.png" group-title="Movies",Film4 (1080p)
 http://80.194.62.172:50002/stream/channelid/1764271106
@@ -10131,6 +10131,8 @@ https://eu1.vectromdigital.com:1936/bci24news/bci24news/playlist.m3u8
 https://cdn3.wowza.com/5/ZWQ1K2NYTmpFbGsr/BEK-WOWZA-1/smil:BEKPRIMEeast.smil/playlist.m3u8
 #EXTINF:-1 tvg-id="BeninWebTV.bj@SD" tvg-logo="https://i.imgur.com/CYy4n0N.png" group-title="News",Bénin Web TV (720p)
 https://stream.beninwebtv.bj/2/live/stream.m3u8
+#EXTINF:-1 tvg-id="BeritaSatu.id@SD" tvg-logo="https://i.postimg.cc/6pycF7Vx/300px-IDTV.png" group-title="News",BeritaSatu (1080p)
+https://beritasatu.secureswiftcontent.com/han/beritasatu/bsatu10008r/srtoutput/manifest.m3u8
 #EXTINF:-1 tvg-id="BFM2.fr@HD" tvg-logo="https://alloforfait.fr/wp-content/uploads/2024/03/logo-bfm2-300x200.jpg" group-title="News",BFM2 (1080p)
 https://d1ib1gsg71oarf.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-scp7wda722jph/BFM2_FR.m3u8
 #EXTINF:-1 tvg-id="BharatSamachar.in@SD" tvg-logo="https://xstreamcp-assets-msp.streamready.in/assets/LIVETV/LIVECHANNEL/LIVETV_LIVETVCHANNEL_BHARAT_SAMACHAR/images/LOGO_HD/image.png" group-title="News",Bharat Samachar (480p)
@@ -10727,7 +10729,7 @@ https://mdstrm.com/live-stream-playlist/610178c7db32a4112d994650.m3u8
 https://5db313b643fd8.streamlock.net/MinformoTV/MinformoTV/playlist.m3u8
 #EXTINF:-1 tvg-id="MirameTV.es@SD" tvg-logo="https://i.imgur.com/LK4pLgT.png" group-title="News",Mírame TV (360p) [Not 24/7]
 https://bit.controlstreams.com:5443/LiveApp/streams/mirametv.m3u8
-#EXTINF:-1 tvg-id="MonacoInfo.mc@SD" tvg-logo="https://i.imgur.com/FPyPaL1.png" group-title="News",Monaco Info (1080p)
+#EXTINF:-1 tvg-id="MonacoInfo.mc@SD" tvg-logo="https://i.imgur.com/dIrKYH7.png" group-title="News",Monaco Info (1080p)
 https://webtv.monacoinfo.com/live/prod/index.m3u8
 #EXTINF:-1 tvg-id="MoonTV.in@SD" tvg-logo="https://i.imgur.com/3l25EZI.png" group-title="News",Moon TV (720p)
 https://player.mslivestream.net/mslive/e10bb900976df9177b9a080314f26f86.sdp/index.m3u8
