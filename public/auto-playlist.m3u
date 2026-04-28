@@ -2005,6 +2005,8 @@ https://tv.hiruhost.com:1936/8012/8012/playlist.m3u8
 https://www.streaming507.net:19360/hispaniamediatv/hispaniamediatv.m3u8
 #EXTINF:-1 tvg-id="Historia.es@SD" tvg-logo="https://i.imgur.com/VUy8xIG.png" group-title="Entertainment",Historia (1080p)
 https://d1k3vzh2ivy22k.cloudfront.net/Historia.m3u8
+#EXTINF:-1 tvg-id="HITS.sg@SD" tvg-logo="https://i.imgur.com/IM8Gy1l.png" group-title="Entertainment",HITS (720p)
+https://cdn10jtedge.indihometv.com/atm/DASH/hits/manifest.mpd
 #EXTINF:-1 tvg-id="HOLAPlay.es@SD" tvg-logo="https://m.media-amazon.com/images/I/5194tl8duqL.png" group-title="Entertainment",HOLA! Play (1080p)
 https://hola-play-2108fd06-86d4-44e8-9867-c35b4895a1c1-es.fast.rakuten.tv/v1/master/0547f18649bd788bec7b67b746e47670f558b6b2/production-LiveChannel-6433/master.m3u8
 #EXTINF:-1 tvg-id="HomeDramaChannel.jp@SD" tvg-logo="https://i.imgur.com/iNkKh7w.png" group-title="Entertainment",Home Drama Channel (544p)
@@ -3157,8 +3159,6 @@ http://51.254.199.122:8080/antenne_a-plus/index.m3u8
 https://live-antenne-reunion.zeop.tv/live/c3eds/antreunihd/hls_fta/antreunihd.m3u8?location=ZEOP01
 #EXTINF:-1 tvg-id="AntofagastaTV.cl@SD" tvg-logo="https://i.imgur.com/XIQr0fs.png" group-title="General",Antofagasta TV (ATV) (1080p)
 https://unlimited6-cl.dps.live/atv/atv.smil/playlist.m3u8
-#EXTINF:-1 tvg-id="ANTV.id@SD" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/Antv_logo.svg/960px-Antv_logo.svg.png" group-title="General",ANTV (576i)
-http://202.80.222.20/cdn/iptv/Tvod/001/channel2000022/1024.m3u8
 #EXTINF:-1 tvg-id="AnzoateguiTV.ve@SD" tvg-logo="https://i.imgur.com/SLqrEOz.png" group-title="General",Anzoátegui TV (360p) [Not 24/7]
 https://vcp2.myplaytv.com/anzoateguitv/anzoateguitv/playlist.m3u8
 #EXTINF:-1 tvg-id="AP1TV.np@SD" tvg-logo="https://upload.wikimedia.org/wikipedia/en/c/c6/AP1_TV_LOGO.png" group-title="General",AP1 TV (720p)
@@ -23277,7 +23277,7 @@ http://live.hnxttv.com:9601/live/xwzh/800K/tzwj_video.m3u8
 http://183.167.193.45:1935/live/cztvgg/playlist.m3u8
 #EXTINF:-1 group-title="Undefined",滁州新闻综合 (450p)
 http://183.167.193.45:1935/live/cztvzh/playlist.m3u8
-#EXTINF:-1 group-title="Undefined",滨州公共电视剧 (576p)
+#EXTINF:-1 group-title="Undefined",滨州公���电视剧 (576p)
 http://stream.bzcm.net/1/sd/live.m3u8
 #EXTINF:-1 group-title="Undefined",滨州新闻综合 (576p)
 http://stream.bzcm.net/2/sd/live.m3u8
