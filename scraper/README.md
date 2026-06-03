@@ -5,10 +5,11 @@ Searches the internet for premium IPTV M3U playlists. The scraper automatically:
 1. **Searches DuckDuckGo** for premium IPTV M3U links across paste sites, blogs, and forums
 2. **Searches GitHub** for repos hosting premium IPTV playlists (repo search + code search)
 3. **Scrapes discovered pages** — follows links, resolves paste sites to raw content, extracts embedded M3U URLs
-4. **Validates streams** — async checks which channels are actually alive
-5. **Deduplicates** — removes exact URL dupes and fuzzy name matches
-6. **Categorizes** — groups by country, language, and genre
-7. **Exports** — writes `playlist.m3u`, split files, and a JSON report
+4. **Capture-aware extraction** — detects stream endpoints in guides/tutorials (`udp://`, `rtp://`, `rtsp://`, `.mpd`) and multicast `IP + port` pairs, then converts them into synthetic M3U entries
+5. **Validates streams** — async checks which channels are actually alive
+6. **Deduplicates** — removes exact URL dupes and fuzzy name matches
+7. **Categorizes** — groups by country, language, and genre
+8. **Exports** — writes `playlist.m3u`, split files, and a JSON report
 
 ## Setup
 
@@ -74,6 +75,15 @@ After a scrape, check `output/`:
 ## Configuration
 
 Edit `config.json` to customize search queries, validation settings, or pin specific sources.
+
+### Capture-intelligence notes
+
+The scraper can now recover stream URLs from non-playlist pages (for example, technical IPTV capture writeups that contain ffmpeg commands or multicast tables). It will:
+
+- capture direct stream URLs from text (`udp://`, `rtp://`, `rtsp://`, `igmp://`, `.m3u8`, `.mpd`)
+- convert multicast address + port pairs like `224.0.252.126 7252` into `udp://224.0.252.126:7252`
+- convert Xtream `player_api.php` credentials into normalized `get.php?...type=m3u_plus` URLs
+- emit a synthetic M3U when no direct playlist file is linked
 
 ### Web search queries
 
