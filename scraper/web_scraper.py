@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import logging
 import re
+from html import unescape
+from ipaddress import ip_address
 from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
@@ -27,6 +29,19 @@ STREAM_URL_RE = re.compile(
 )
 
 M3U_CONTENT_MARKERS = ("#EXTM3U", "#EXTINF")
+
+NON_HTTP_STREAM_SCHEMES = {"rtsp", "rtp", "udp", "igmp", "rtmp", "rtmps", "rtmpe", "rtmpte", "mms", "mmsh", "mmst", "srt"}
+HTTP_STREAM_HINTS = (
+    ".m3u", ".m3u8", ".mpd", ".ts", ".m4s", ".mp4", ".aac",
+    "/manifest", "/playlist", "/stream", "/hls", "/live",
+    "type=m3u", "output=ts", "output=m3u8", "format=m3u",
+)
+MULTICAST_HOST_PORT_RE = re.compile(
+    r'(?<![\d.])((?:22[4-9]|23\d)\.(?:\d{1,3}\.){2}\d{1,3})'
+    r'(?:\s*:\s*|\s+on\s+port\s+|\s+port\s+|\s+)'
+    r'(\d{2,5})(?!\d)',
+    re.IGNORECASE,
+)
 
 PASTE_RAW_PATTERNS: dict[str, str] = {
     "pastebin.com": "https://pastebin.com/raw/{paste_id}",
@@ -65,10 +80,89 @@ def _looks_like_m3u(text: str) -> bool:
     return any(marker in head for marker in M3U_CONTENT_MARKERS)
 
 
-def _extract_m3u_urls(html: str, base_url: str = "") -> list[str]:
-    found = M3U_URL_RE.findall(html)
+def _normalize_candidate_url(url: str) -> str:
+    return (
+        unescape(url)
+        .replace("\\/", "/")
+        .replace("\\u002F", "/")
+        .strip()
+        .strip("\"'()[]{}<>")
+        .rstrip(".,;")
+    )
+
+
+def _is_multicast_ipv4(host: str) -> bool:
     try:
-        soup = BeautifulSoup(html, "lxml")
+        return ip_address(host).is_multicast
+    except ValueError:
+        return False
+
+
+def _looks_like_http_stream_url(url: str) -> bool:
+    parsed = urlparse(url)
+    path = (parsed.path or "").lower()
+    query = (parsed.query or "").lower()
+    combined = f"{path}?{query}"
+    return any(hint in combined for hint in HTTP_STREAM_HINTS)
+
+
+def _is_valid_non_http_stream_target(parsed_url) -> bool:
+    host = parsed_url.hostname or ""
+    if not host:
+        return False
+
+    try:
+        port = parsed_url.port
+    except ValueError:
+        return False
+
+    scheme = (parsed_url.scheme or "").lower()
+    if scheme in {"udp", "rtp", "igmp"} and port is None:
+        return False
+    return True
+
+
+def _extract_raw_stream_urls(text: str) -> list[str]:
+    normalized_text = text.replace("\\/", "/").replace("\\u002F", "/")
+    candidates = STREAM_URL_RE.findall(normalized_text)
+
+    for host, port in MULTICAST_HOST_PORT_RE.findall(normalized_text):
+        if _is_multicast_ipv4(host):
+            candidates.append(f"udp://{host}:{port}")
+
+    seen: set[str] = set()
+    urls: list[str] = []
+    for candidate in candidates:
+        stream_url = _normalize_candidate_url(candidate)
+        if not stream_url:
+            continue
+        parsed = urlparse(stream_url)
+        scheme = (parsed.scheme or "").lower()
+        if scheme in {"http", "https"} and not _looks_like_http_stream_url(stream_url):
+            continue
+        if scheme in NON_HTTP_STREAM_SCHEMES and not _is_valid_non_http_stream_target(parsed):
+            continue
+        if stream_url not in seen:
+            seen.add(stream_url)
+            urls.append(stream_url)
+    return urls
+
+
+def _make_synthetic_m3u(urls: list[str], title_prefix: str = "Captured IPTV Stream") -> str:
+    if not urls:
+        return ""
+    lines = ["#EXTM3U"]
+    for index, stream_url in enumerate(urls, start=1):
+        lines.append(f'#EXTINF:-1 group-title="Captured",{title_prefix} {index}')
+        lines.append(stream_url)
+    return "\n".join(lines)
+
+
+def _extract_m3u_urls(html: str, base_url: str = "") -> list[str]:
+    normalized_html = html.replace("\\/", "/").replace("\\u002F", "/")
+    found = M3U_URL_RE.findall(normalized_html)
+    try:
+        soup = BeautifulSoup(normalized_html, "lxml")
         for tag in soup.find_all("a", href=True):
             href = tag["href"]
             if ".m3u" in href.lower():
@@ -106,6 +200,13 @@ def scrape_page_for_playlists(url: str, timeout: int = 12, depth: int = 0) -> li
         m3u_text = fetch(link, timeout=8)
         if m3u_text and _looks_like_m3u(m3u_text):
             results.append((link, m3u_text))
+
+    seen_result_urls = {stream_url for stream_url, _ in results}
+    raw_stream_urls = [u for u in _extract_raw_stream_urls(text) if u not in seen_result_urls]
+    if raw_stream_urls:
+        synthetic = _make_synthetic_m3u(raw_stream_urls[:200])
+        if synthetic:
+            results.append((f"raw:{url}", synthetic))
 
     if depth < 1:
         try:
